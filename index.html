@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TripSplit 旅伴分帳器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#1f9ad6; --sky-d:#127bb0; --sky-l:#e3f4fc;
+  --coral:#ff7a59; --coral-d:#e8603f; --coral-l:#fff0eb;
+  --ink:#1d3557; --muted:#6b7a90; --line:#dbe7f0;
+  --bg:#f3f9fd; --card:#ffffff; --green:#22a565; --green-l:#e6f7ee; --red:#e5484d; --red-l:#fdecec;
+  --radius:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Noto Sans TC',system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select{font:inherit;color:inherit}
+h2{font-size:1.1rem;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+h2 small{font-weight:500;color:var(--muted);font-size:.85rem}
+h3{font-size:.95rem;margin:18px 0 8px;color:var(--muted)}
+
+/* ===== Hero ===== */
+.hero{background:linear-gradient(135deg,#1784c0 0%,#1f9ad6 45%,#5cc6f0 100%);color:#fff;padding:28px 16px 64px;position:relative;overflow:hidden}
+.hero::before,.hero::after{content:'';position:absolute;background:rgba(255,255,255,.18);border-radius:999px}
+.hero::before{width:220px;height:60px;top:26px;right:-40px;box-shadow:-60px 30px 0 -10px rgba(255,255,255,.12)}
+.hero::after{width:160px;height:44px;bottom:30px;left:-30px}
+.hero-inner{max-width:1080px;margin:0 auto;position:relative;z-index:1}
+.brand{font-weight:900;font-size:1.05rem;letter-spacing:.5px;opacity:.95}
+.brand span{font-weight:500;opacity:.85;margin-left:4px}
+.hero .trip-name{width:100%;max-width:560px;background:transparent;border:none;border-bottom:2px dashed rgba(255,255,255,.55);color:#fff;font-size:1.8rem;font-weight:900;padding:6px 0;margin:8px 0 4px;outline:none}
+.hero .trip-name::placeholder{color:rgba(255,255,255,.7)}
+.hero .trip-name:focus{border-bottom-color:#fff}
+.greeting{margin:4px 0 14px;font-size:1rem;opacity:.95;min-height:1.5em}
+.hero-meta{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.hero-meta label{white-space:nowrap;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);padding:6px 6px 6px 12px;border-radius:999px;font-size:.9rem}
+.hero-meta select{width:auto;border:none;border-radius:999px;padding:4px 10px;background:#fff;color:var(--ink);font-weight:700;cursor:pointer}
+.pill{background:rgba(255,255,255,.18);padding:6px 12px;border-radius:999px;font-size:.85rem}
+.flight{position:absolute;left:0;right:0;bottom:22px;height:2px;border-top:2px dashed rgba(255,255,255,.35)}
+.flight span{position:absolute;top:-16px;font-size:1.3rem;animation:fly 14s linear infinite}
+@keyframes fly{from{left:-5%}to{left:105%}}
+
+/* level */
+.level{margin-top:16px;max-width:420px;background:rgba(255,255,255,.16);border-radius:14px;padding:10px 14px}
+.level-top{display:flex;justify-content:space-between;font-size:.88rem;gap:8px}
+.level-top b{font-size:.95rem}
+.bar{height:8px;background:rgba(255,255,255,.3);border-radius:99px;margin-top:6px;overflow:hidden}
+.bar div{height:100%;background:#ffd166;border-radius:99px;transition:width .5s}
+
+/* ===== Layout ===== */
+.grid{max-width:1080px;margin:-40px auto 0;padding:0 16px 24px;display:grid;gap:18px;grid-template-columns:1fr;position:relative;z-index:2}
+@media(min-width:960px){.grid{grid-template-columns:420px 1fr;align-items:start}}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.card{background:var(--card);border-radius:var(--radius);padding:20px;box-shadow:0 4px 18px rgba(29,53,87,.07);border:1px solid #e8f1f7}
+
+/* ticket style */
+.ticket{position:relative}
+.ticket::before,.ticket::after{content:'';position:absolute;top:50px;width:22px;height:22px;border-radius:50%;background:var(--bg)}
+.ticket::before{left:-12px;box-shadow:inset -2px 0 3px rgba(29,53,87,.05)}
+.ticket::after{right:-12px;box-shadow:inset 2px 0 3px rgba(29,53,87,.05)}
+.ticket > h2{border-bottom:2px dashed var(--line);padding-bottom:14px;margin-bottom:16px}
+
+/* ===== Controls ===== */
+.btn{border:none;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;transition:transform .1s,background .2s,box-shadow .2s;white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn-sky{background:var(--sky);color:#fff}
+.btn-sky:hover{background:var(--sky-d)}
+.btn-coral{background:var(--coral);color:#fff;box-shadow:0 4px 12px rgba(255,122,89,.35)}
+.btn-coral:hover{background:var(--coral-d)}
+.btn-ghost{background:var(--sky-l);color:var(--sky-d)}
+.btn-ghost:hover{background:#d2ecf8}
+.btn-danger{background:transparent;color:var(--red);border:1.5px solid #f3c2c3}
+.btn-danger:hover{background:var(--red-l)}
+.btn-block{width:100%;margin-top:16px;padding:13px}
+.icon-btn{border:none;background:transparent;cursor:pointer;font-size:1rem;padding:6px;border-radius:8px;line-height:1}
+.icon-btn:hover{background:var(--sky-l)}
+
+input[type=text],input[type=number],input:not([type]),select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;outline:none;transition:border .2s}
+input:focus,select:focus{border-color:var(--sky)}
+.row{display:flex;gap:8px}
+.row input{flex:1;min-width:0}
+.field{display:block;margin-bottom:14px}
+.field > span{display:flex;justify-content:space-between;align-items:center;font-size:.88rem;font-weight:700;margin-bottom:6px;color:#3a4f6b}
+.field > span a{font-weight:500;color:var(--sky-d);font-size:.82rem;text-decoration:none}
+.two{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
+.hint{color:var(--muted);font-size:.82rem}
+.preview{margin:-6px 0 14px;font-size:.9rem;color:var(--sky-d);font-weight:700;min-height:1.4em}
+
+/* chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--sky-l);border-radius:999px;padding:4px 6px 4px 4px;font-weight:500;font-size:.92rem}
+.chip .x{border:none;background:transparent;cursor:pointer;color:var(--muted);font-size:1rem;line-height:1;padding:2px 6px;border-radius:99px}
+.chip .x:hover{background:#fff;color:var(--red)}
+.avatar{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.8rem;font-weight:700;flex-shrink:0}
+.toggle{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px 5px 5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:.9rem;transition:all .15s;opacity:.55}
+.toggle.on{border-color:var(--sky);background:var(--sky-l);opacity:1}
+.cat-pick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.cat-pick button{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:6px 2px;cursor:pointer;font-size:.78rem;display:flex;flex-direction:column;align-items:center;gap:2px;transition:all .15s}
+.cat-pick button .ic{font-size:1.25rem}
+.cat-pick button.on{border-color:var(--coral);background:var(--coral-l);color:var(--coral-d);font-weight:700}
+.form-actions{display:flex;gap:8px}
+.form-actions .btn-coral{flex:1;padding:13px}
+.empty{text-align:center;color:var(--muted);padding:22px 10px;font-size:.92rem}
+.empty .big{font-size:2.2rem;display:block;margin-bottom:4px}
+
+/* rates */
+details.card summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary h2{margin:0}
+details.card summary::after{content:'▾';color:var(--muted);transition:transform .2s}
+details[open].card summary::after{transform:rotate(180deg)}
+details[open].card summary{margin-bottom:12px}
+.rate-row{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.rate-row:last-of-type{border-bottom:none}
+.rate-row .lbl{font-size:.88rem;white-space:nowrap}
+.rate-row input{padding:6px 10px}
+.rate-row .tag{font-size:.72rem;background:var(--coral-l);color:var(--coral-d);padding:2px 8px;border-radius:99px;margin-left:4px}
+.rate-row .unit{font-size:.85rem;color:var(--muted);display:flex;align-items:center;gap:2px;min-width:72px}
+
+/* expense list */
+.summary{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.stat{flex:1;min-width:120px;background:var(--sky-l);border-radius:14px;padding:10px 14px}
+.stat small{display:block;color:var(--muted);font-size:.78rem}
+.stat b{font-size:1.2rem}
+.exp{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;border:1px solid var(--line);margin-bottom:10px;transition:background .2s}
+.exp:hover{background:#fafdff}
+.exp.editing{border-color:var(--coral);background:var(--coral-l)}
+.exp .ic{font-size:1.5rem;width:42px;height:42px;border-radius:12px;background:var(--sky-l);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.exp .body{flex:1;min-width:0}
+.exp .t{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exp .m{font-size:.82rem;color:var(--muted)}
+.exp .amt{text-align:right;flex-shrink:0}
+.exp .amt b{display:block}
+.exp .amt small{color:var(--muted);font-size:.8rem}
+.exp .ops{display:flex;flex-direction:column}
+
+/* settle */
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:6px}
+.badge{background:linear-gradient(135deg,#fff7e0,#ffeccc);border-radius:14px;padding:10px 12px;font-size:.85rem}
+.badge b{display:block;font-size:.95rem}
+.badge small{color:#8a6d3b}
+.bal{width:100%;border-collapse:collapse;font-size:.9rem}
+.bal th{text-align:right;color:var(--muted);font-weight:500;font-size:.8rem;padding:6px 4px;border-bottom:1px solid var(--line)}
+.bal th:first-child,.bal td:first-child{text-align:left}
+.bal td{text-align:right;padding:8px 4px;border-bottom:1px dashed var(--line)}
+.bal .who{display:flex;align-items:center;gap:6px}
+.pos{color:var(--green);font-weight:700}
+.neg{color:var(--red);font-weight:700}
+.zero{color:var(--muted)}
+.tf{display:flex;align-items:center;gap:10px;background:var(--sky-l);border-radius:14px;padding:10px 14px;margin-bottom:8px;font-weight:500}
+.tf .arrow{color:var(--coral);font-weight:900}
+.tf .money{margin-left:auto;font-weight:900;color:var(--ink);font-size:1.05rem}
+.celebrate{text-align:center;background:var(--green-l);color:var(--green);border-radius:14px;padding:14px;font-weight:700}
+
+footer{max-width:1080px;margin:0 auto;padding:8px 16px 40px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:.82rem}
+
+/* toast */
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,30px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:14px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:all .3s;z-index:99;max-width:calc(100% - 32px);text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.big{background:linear-gradient(135deg,#ff7a59,#ffb347);font-size:1.05rem}
+
+@media(max-width:520px){
+  .hero .trip-name{font-size:1.4rem}
+  .cat-pick{grid-template-columns:repeat(4,1fr)}
+  .two{grid-template-columns:1fr 1fr}
+  .exp{gap:10px;padding:10px}
+  .exp .ic{width:36px;height:36px;font-size:1.2rem}
+  .bal{font-size:.82rem}
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="brand">✈️ TripSplit<span>旅伴分帳器</span></div>
+    <input id="tripName" class="trip-name" maxlength="30" placeholder="幫這趟旅程取個名字吧！">
+    <p id="greeting" class="greeting"></p>
+    <div class="hero-meta">
+      <label>結算幣別 <select id="baseCur"></select></label>
+      <span id="rateStatus" class="pill">匯率載入中…</span>
+    </div>
+    <div class="level">
+      <div class="level-top"><span id="levelName"></span><span id="levelNext"></span></div>
+      <div class="bar"><div id="levelBar"></div></div>
+    </div>
+  </div>
+  <div class="flight"><span>✈️</span></div>
+</header>
+
+<main class="grid">
+  <div class="col">
+    <section class="card">
+      <h2>🧑‍🤝‍🧑 旅伴名單 <small id="memberCount"></small></h2>
+      <div class="row">
+        <input id="memberInput" maxlength="12" placeholder="輸入旅伴名字">
+        <button id="addMemberBtn" class="btn btn-sky">＋ 加入</button>
+      </div>
+      <div id="memberList" class="chips" style="margin-top:12px"></div>
+    </section>
+
+    <section class="card ticket" id="formCard">
+      <h2 id="formTitle">🧾 新增一筆費用</h2>
+      <form id="expenseForm" autocomplete="off">
+        <label class="field"><span>項目名稱</span><input id="fTitle" maxlength="30" placeholder="例如：一蘭拉麵"></label>
+        <div class="field"><span>類別</span><div id="fCats" class="cat-pick"></div></div>
+        <div class="two">
+          <label class="field"><span>金額</span><input id="fAmount" type="number" inputmode="decimal" min="0" step="any" placeholder="0"></label>
+          <label class="field"><span>幣別</span><select id="fCurrency"></select></label>
+        </div>
+        <div id="fPreview" class="preview"></div>
+        <label class="field"><span>誰付的錢？</span><select id="fPayer"></select></label>
+        <div class="field">
+          <span>誰要分攤？ <a href="#" id="toggleAll">全選／全不選</a></span>
+          <div id="fParts" class="chips"></div>
+          <small id="shareHint" class="hint"></small>
+        </div>
+        <div class="form-actions">
+          <button type="submit" id="submitBtn" class="btn btn-coral">✈️ 記下這筆</button>
+          <button type="button" id="cancelEdit" class="btn btn-ghost" hidden>取消</button>
+        </div>
+      </form>
+    </section>
+
+    <details class="card" id="ratesCard">
+      <summary><h2>💱 匯率設定</h2></summary>
+      <p class="hint" style="margin-top:0">匯率會自動抓取最新數字。如果你實際換匯的匯率不同，可以直接修改，所有金額會立刻重新計算。</p>
+      <div id="rateList"></div>
+      <button id="refreshRates" class="btn btn-ghost btn-block" type="button">🔄 重新抓取即時匯率</button>
+    </details>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <h2>📒 費用清單</h2>
+      <div id="listSummary" class="summary"></div>
+      <div id="expenseList"></div>
+    </section>
+
+    <section class="card ticket" id="settleCard">
+      <h2>🧮 結算中心</h2>
+      <div id="settleBody"></div>
+      <button id="copyBtn" class="btn btn-sky btn-block" type="button">📋 一鍵複製結算結果（貼到 LINE）</button>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span>💾 資料會自動儲存在這台裝置的瀏覽器中・匯率來源：open.er-api.com</span>
+  <button id="clearAll" class="btn btn-danger" type="button">🗑️ 清除全部資料</button>
+</footer>
+
+<div id="toast" class="toast"></div>
+
+<script>
+/* ================= 基本設定 ================= */
+const CURRENCIES = {
+  TWD:{name:'新台幣',sym:'NT$',flag:'🇹🇼',dec:0},
+  JPY:{name:'日圓',sym:'¥',flag:'🇯🇵',dec:0},
+  KRW:{name:'韓元',sym:'₩',flag:'🇰🇷',dec:0},
+  USD:{name:'美元',sym:'US$',flag:'🇺🇸',dec:2},
+  EUR:{name:'歐元',sym:'€',flag:'🇪🇺',dec:2},
+  THB:{name:'泰銖',sym:'฿',flag:'🇹🇭',dec:2},
+  HKD:{name:'港幣',sym:'HK$',flag:'🇭🇰',dec:2},
+  CNY:{name:'人民幣',sym:'CN¥',flag:'🇨🇳',dec:2},
+  SGD:{name:'新加坡幣',sym:'S$',flag:'🇸🇬',dec:2},
+  GBP:{name:'英鎊',sym:'£',flag:'🇬🇧',dec:2},
+  VND:{name:'越南盾',sym:'₫',flag:'🇻🇳',dec:0}
+};
+// 內建參考匯率：1 TWD = ? 外幣（API 失敗時使用）
+const DEFAULT_TWD_RATES = {TWD:1,JPY:4.8,KRW:44,USD:0.031,EUR:0.028,THB:1.05,HKD:0.24,CNY:0.22,SGD:0.041,GBP:0.024,VND:820};
+const CATS = {
+  food:{label:'餐飲',icon:'🍜'}, flight:{label:'機票',icon:'✈️'}, transport:{label:'交通',icon:'🚄'}, hotel:{label:'住宿',icon:'🏨'},
+  ticket:{label:'門票',icon:'🎟️'}, shopping:{label:'購物',icon:'🛍️'}, souvenir:{label:'伴手禮',icon:'🎁'}, other:{label:'其他',icon:'📦'}
+};
+const AVATAR_COLORS = ['#1f9ad6','#ff7a59','#22a565','#9b5de5','#f4a261','#e5484d','#00b4a6','#5c7cfa','#d6336c','#7c8a2e'];
+const STORAGE_KEY = 'tripsplit-v1';
+
+/* ================= 趣味文案 ================= */
+const GREETINGS = [
+  '嗨，旅遊會計達人！今天誰又請客了？ 😎',
+  '出發吧！帳交給我，回憶交給你們 ✈️',
+  '吃喝玩樂我們來，算帳交給達人啦～ 🧸',
+  '記帳不傷感情，不記帳才傷感情 💸',
+  '旅遊會計達人上線，每一塊錢都逃不過你的法眼 🔍',
+  '玩得盡興，算得清楚，下次還要一起出國 🌏'
+];
+const CAT_TOASTS = {
+  food:['吃飽才有力氣分帳 🍜','美食無價，但帳要有價 😋','這一餐的熱量我不管，帳我記好了 🍱'],
+  flight:['機票入帳，準備起飛囉 ✈️','雲端之上，帳目也清清楚楚 ☁️'],
+  transport:['交通費記好了，下一站出發 🚄','路上的每一步都算數 🚕'],
+  hotel:['睡得好，帳也要算得好 🏨','今晚的床位已入帳 🛏️'],
+  ticket:['門票收好，回憶也收好 🎟️','這個景點值回票價！🎡'],
+  shopping:['錢包在哭泣，但帳本很開心 🛍️','買買買！達人已幫你記好 💳'],
+  souvenir:['伴手禮買好了，人情債也記好了 🎁','帶點心意回家，帳一樣算清楚 🧁'],
+  other:['小錢也是錢，達人照記不誤 📦','記下來了，一毛都不會漏 ✅']
+};
+const LEVELS = [
+  {min:0,  icon:'🐣', name:'記帳新手'},
+  {min:3,  icon:'🧾', name:'分帳小幫手'},
+  {min:8,  icon:'🧮', name:'旅遊會計達人'},
+  {min:15, icon:'👑', name:'傳說中的財務長'}
+];
+
+/* ================= 狀態 ================= */
+function defaultState(){
+  return {tripName:'',base:'TWD',members:[],expenses:[],liveRates:null,liveBase:null,ratesUpdated:null,overrides:{},lastCurrency:'JPY'};
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    return Object.assign(defaultState(), JSON.parse(raw));
+  }catch(e){ return null; }
+}
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){}
+}
+let state = load() || defaultState();
+let rateMode = 'loading';          // loading | live | cached | default
+let formCat = 'food';
+let formParts = new Set(state.members.map(m=>m.id));
+let editingId = null;
+
+/* ================= 工具函式 ================= */
+const $ = id => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
+const esc = s => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmt(v, cur){
+  const c = CURRENCIES[cur];
+  const n = Number(v);
+  return c.sym + n.toLocaleString('zh-TW',{minimumFractionDigits:c.dec,maximumFractionDigits:c.dec});
+}
+function fmtRate(r){
+  if(r >= 100) return String(Math.round(r*100)/100);
+  return String(Number(r.toPrecision(5)));
+}
+function member(id){ return state.members.find(m=>m.id===id); }
+function memberName(id){ const m = member(id); return m ? m.name : '（已移除）'; }
+function avatar(id){
+  const idx = state.members.findIndex(m=>m.id===id);
+  const color = AVATAR_COLORS[(idx<0?0:idx) % AVATAR_COLORS.length];
+  const name = memberName(id);
+  // 中文名字取最後一個字（小明→明），英文取第一個字母
+  const ch = /[\u4e00-\u9fff]/.test(name) ? name.slice(-1) : name.slice(0,1).toUpperCase();
+  return `<span class="avatar" style="background:${color}">${esc(ch)}</span>`;
+}
+// 一般訊息立即顯示；toastAfter() 的訊息會排在目前訊息之後（例如升級恭喜），不會互相蓋掉
+const toastQueue = [];
+let toastTimer;
+function showToast(msg, big){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('big', big);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{
+    t.classList.remove('show');
+    const next = toastQueue.shift();
+    if(next) toastTimer = setTimeout(()=>showToast(next.msg, next.big), 300);
+  }, big ? 3200 : 2600);
+}
+function toast(msg, big=false){ toastQueue.length = 0; showToast(msg, big); }
+function toastAfter(msg, big=false){ toastQueue.push({msg, big}); }
+
+/* ================= 匯率 ================= */
+// 回傳：1 結算幣 = ? 該幣別
+function rate(cur){
+  if(cur === state.base) return 1;
+  if(state.overrides[cur] > 0) return state.overrides[cur];
+  if(state.liveRates && state.liveBase === state.base && state.liveRates[cur] > 0) return state.liveRates[cur];
+  return DEFAULT_TWD_RATES[cur] / DEFAULT_TWD_RATES[state.base];
+}
+function toBase(amount, cur){ return amount / rate(cur); }
+
+async function fetchRates(){
+  rateMode = 'loading'; renderRateStatus();
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(()=>ctrl.abort(), 8000);
+    const res = await fetch(`https://open.er-api.com/v6/latest/${state.base}`, {signal:ctrl.signal});
+    clearTimeout(timer);
+    const data = await res.json();
+    if(data.result !== 'success') throw new Error('API error');
+    const r = {};
+    Object.keys(CURRENCIES).forEach(c=>{ if(data.rates[c]) r[c] = data.rates[c]; });
+    state.liveRates = r; state.liveBase = state.base; state.ratesUpdated = Date.now();
+    rateMode = 'live';
+  }catch(e){
+    rateMode = (state.liveRates && state.liveBase === state.base) ? 'cached' : 'default';
+  }
+  save(); renderAll();
+}
+
+/* ================= 計算核心 ================= */
+function compute(){
+  const base = state.base;
+  const eps = Math.pow(10, -CURRENCIES[base].dec) / 2;
+  const paid = {}, owed = {}, cat = {};
+  state.members.forEach(m=>{ paid[m.id]=0; owed[m.id]=0; cat[m.id]={}; });
+  let total = 0;
+  state.expenses.forEach(e=>{
+    const v = toBase(e.amount, e.currency);
+    total += v;
+    if(paid[e.payer] !== undefined) paid[e.payer] += v;
+    const share = v / e.participants.length;
+    e.participants.forEach(p=>{
+      if(owed[p] === undefined) return;
+      owed[p] += share;
+      cat[p][e.cat] = (cat[p][e.cat]||0) + share;
+    });
+  });
+  const balance = {};
+  state.members.forEach(m=>{ balance[m.id] = paid[m.id] - owed[m.id]; });
+
+  // 最少轉帳：欠最多的人付給應收最多的人
+  let debtors = state.members.filter(m=>balance[m.id] < -eps).map(m=>({id:m.id, amt:-balance[m.id]}));
+  let creditors = state.members.filter(m=>balance[m.id] > eps).map(m=>({id:m.id, amt:balance[m.id]}));
+  const transfers = [];
+  while(debtors.length && creditors.length){
+    debtors.sort((a,b)=>b.amt-a.amt); creditors.sort((a,b)=>b.amt-a.amt);
+    const d = debtors[0], c = creditors[0];
+    const x = Math.min(d.amt, c.amt);
+    transfers.push({from:d.id, to:c.id, amt:x});
+    d.amt -= x; c.amt -= x;
+    if(d.amt < eps) debtors.shift();
+    if(c.amt < eps) creditors.shift();
+  }
+  return {paid, owed, balance, transfers, total, cat, eps};
+}
+
+function badges(r){
+  if(state.expenses.length === 0 || state.members.length < 2) return [];
+  const ids = state.members.map(m=>m.id);
+  // 只有「唯一」的第一名才頒發稱號，平手就不頒
+  const uniqueTop = (f, dir=1) => {
+    const sorted = [...ids].sort((a,b)=>dir*(f(b)-f(a)));
+    return (Math.abs(f(sorted[0]) - f(sorted[1])) > r.eps) ? sorted[0] : null;
+  };
+  const maxBy = f => uniqueTop(f, 1);
+  const minBy = f => uniqueTop(f, -1);
+  const out = [];
+  const rich = maxBy(id=>r.paid[id]);
+  const RICH_LINES = ['錢包正在大哭 🥲','荷包瘦了一大圈 🫠'];
+  if(rich && r.paid[rich] > 0){
+    const k = [...rich].reduce((a,c)=>a+c.charCodeAt(0),0) % RICH_LINES.length;  // 同一個人固定同一句，不會一直跳動
+    out.push({icon:'💰',title:'最大金主',who:rich,desc:`先墊了 ${fmt(r.paid[rich],state.base)}，${RICH_LINES[k]}`});
+  }
+  const foodie = maxBy(id=>r.cat[id].food||0);
+  if(foodie && (r.cat[foodie].food||0) > 0) out.push({icon:'🍜',title:'美食探險家',who:foodie,desc:'吃的錢最多，肚子最有收穫'});
+  const shopper = maxBy(id=>r.cat[id].shopping||0);
+  if(shopper && (r.cat[shopper].shopping||0) > 0) out.push({icon:'🛍️',title:'購物狂',who:shopper,desc:'行李箱應該快關不起來了'});
+  const saver = minBy(id=>r.owed[id]);
+  if(saver) out.push({icon:'😇',title:'省錢小天使',who:saver,desc:'花最少，荷包最健康'});
+  return out;
+}
+
+function levelOf(n){
+  let lv = 0;
+  LEVELS.forEach((l,i)=>{ if(n >= l.min) lv = i; });
+  return lv;
+}
+
+/* ================= 畫面渲染 ================= */
+function renderHeader(){
+  $('tripName').value = state.tripName;
+  const sel = $('baseCur');
+  sel.innerHTML = Object.entries(CURRENCIES).map(([k,c])=>`<option value="${k}">${c.flag} ${k}</option>`).join('');
+  sel.value = state.base;
+}
+function renderGreeting(){
+  $('greeting').textContent = state.members.length < 2
+    ? '先把旅伴加進來吧！至少 2 個人才能開始分帳 🎒'
+    : pick(GREETINGS);
+}
+function renderRateStatus(){
+  const el = $('rateStatus');
+  if(rateMode === 'loading'){ el.textContent = '⏳ 匯率更新中…'; return; }
+  const n = Object.keys(state.overrides).length;
+  const extra = n ? `・${n} 個手動調整` : '';
+  if(rateMode === 'live'){
+    const t = new Date(state.ratesUpdated);
+    el.textContent = `🟢 即時匯率・${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} 更新${extra}`;
+  }else if(rateMode === 'cached'){
+    const t = new Date(state.ratesUpdated);
+    el.textContent = `🟡 離線中，使用 ${t.getMonth()+1}/${t.getDate()} 的匯率${extra}`;
+  }else{
+    el.textContent = `🟠 無法連線，使用內建參考匯率${extra}`;
+  }
+}
+function renderLevel(){
+  const n = state.expenses.length;
+  const lv = levelOf(n);
+  const cur = LEVELS[lv], next = LEVELS[lv+1];
+  $('levelName').innerHTML = `${cur.icon} <b>${cur.name}</b>`;
+  if(next){
+    $('levelNext').textContent = `再記 ${next.min - n} 筆升級 ${next.icon}`;
+    $('levelBar').style.width = ((n - cur.min) / (next.min - cur.min) * 100) + '%';
+  }else{
+    $('levelNext').textContent = `已記 ${n} 筆・最高等級！`;
+    $('levelBar').style.width = '100%';
+  }
+}
+function renderMembers(){
+  $('memberCount').textContent = `${state.members.length} / 10 人`;
+  $('memberList').innerHTML = state.members.length
+    ? state.members.map(m=>`<span class="chip">${avatar(m.id)}${esc(m.name)}<button class="x" data-del-member="${m.id}" title="移除">×</button></span>`).join('')
+    : '<span class="hint">還沒有旅伴，先新增幾位吧！</span>';
+}
+function renderForm(){
+  $('fCats').innerHTML = Object.entries(CATS).map(([k,c])=>
+    `<button type="button" data-cat="${k}" class="${k===formCat?'on':''}"><span class="ic">${c.icon}</span>${c.label}</button>`).join('');
+  const curSel = $('fCurrency');
+  if(!curSel.options.length){
+    curSel.innerHTML = Object.entries(CURRENCIES).map(([k,c])=>`<option value="${k}">${c.flag} ${k} ${c.name}</option>`).join('');
+    curSel.value = state.lastCurrency || 'JPY';
+  }
+  const payer = $('fPayer');
+  const prev = payer.value;
+  payer.innerHTML = state.members.length
+    ? state.members.map(m=>`<option value="${m.id}">${esc(m.name)}</option>`).join('')
+    : '<option value="">（請先新增旅伴）</option>';
+  if(member(prev)) payer.value = prev;
+  [...formParts].forEach(id=>{ if(!member(id)) formParts.delete(id); });
+  $('fParts').innerHTML = state.members.length
+    ? state.members.map(m=>`<button type="button" class="toggle ${formParts.has(m.id)?'on':''}" data-part="${m.id}">${avatar(m.id)}${esc(m.name)}</button>`).join('')
+    : '<span class="hint">新增旅伴後就能勾選</span>';
+  renderPreview();
+}
+function renderPreview(){
+  const amt = parseFloat($('fAmount').value);
+  const cur = $('fCurrency').value;
+  const n = formParts.size;
+  if(amt > 0 && cur){
+    const v = toBase(amt, cur);
+    $('fPreview').textContent = cur === state.base ? '' : `≈ ${fmt(v, state.base)}（1 ${state.base} = ${fmtRate(rate(cur))} ${cur}）`;
+    $('shareHint').textContent = n ? `👉 ${n} 人平均分攤，每人 ${fmt(v/n, state.base)}` : '⚠️ 至少要勾選 1 位分攤人';
+  }else{
+    $('fPreview').textContent = '';
+    $('shareHint').textContent = n ? `已勾選 ${n} 人平均分攤` : '⚠️ 至少要勾選 1 位分攤人';
+  }
+}
+function renderRates(){
+  const others = Object.keys(CURRENCIES).filter(c=>c !== state.base);
+  $('rateList').innerHTML = others.map(c=>{
+    const manual = state.overrides[c] > 0;
+    return `<div class="rate-row">
+      <span class="lbl">${CURRENCIES[c].flag} 1 ${state.base} =</span>
+      <input type="number" step="any" min="0" data-rate="${c}" value="${fmtRate(rate(c))}">
+      <span class="unit">${c}${manual?`<span class="tag">手動</span><button class="icon-btn" data-reset-rate="${c}" title="恢復自動匯率">↺</button>`:''}</span>
+    </div>`;
+  }).join('');
+}
+function renderExpenses(r){
+  const list = [...state.expenses].sort((a,b)=>b.createdAt - a.createdAt);
+  const avg = state.members.length ? r.total / state.members.length : 0;
+  $('listSummary').innerHTML = `
+    <div class="stat"><small>費用筆數</small><b>${state.expenses.length} 筆</b></div>
+    <div class="stat"><small>旅程總花費</small><b>${fmt(r.total, state.base)}</b></div>
+    <div class="stat"><small>平均每人</small><b>${fmt(avg, state.base)}</b></div>`;
+  if(!list.length){
+    $('expenseList').innerHTML = `<div class="empty"><span class="big">🧳</span>帳本還是空的，旅程才剛開始！<br>從左邊記下第一筆費用吧</div>`;
+    return;
+  }
+  $('expenseList').innerHTML = list.map(e=>{
+    const c = CATS[e.cat] || CATS.other;
+    const parts = e.participants.length === state.members.length ? '全員分攤' : `${e.participants.length} 人分攤：${e.participants.map(memberName).map(esc).join('、')}`;
+    const conv = e.currency === state.base ? '' : `<small>≈ ${fmt(toBase(e.amount,e.currency), state.base)}</small>`;
+    return `<div class="exp ${editingId===e.id?'editing':''}">
+      <div class="ic">${c.icon}</div>
+      <div class="body">
+        <div class="t">${esc(e.title)}</div>
+        <div class="m">${esc(memberName(e.payer))} 付款・${parts}</div>
+      </div>
+      <div class="amt"><b>${fmt(e.amount, e.currency)}</b>${conv}</div>
+      <div class="ops">
+        <button class="icon-btn" data-edit="${e.id}" title="編輯">✏️</button>
+        <button class="icon-btn" data-del-exp="${e.id}" title="刪除">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function renderSettle(r){
+  const body = $('settleBody');
+  if(state.members.length < 2 || !state.expenses.length){
+    body.innerHTML = `<div class="empty"><span class="big">🧮</span>新增旅伴和費用後，旅遊會計達人會在這裡幫大家算清楚！</div>`;
+    $('copyBtn').disabled = true; $('copyBtn').style.opacity = .5;
+    return;
+  }
+  $('copyBtn').disabled = false; $('copyBtn').style.opacity = 1;
+  const b = badges(r);
+  const badgeHtml = b.length ? `<h3 style="margin-top:0">🏅 本次旅程稱號</h3><div class="badges">${b.map(x=>
+    `<div class="badge"><b>${x.icon} ${x.title}</b>${esc(memberName(x.who))}<br><small>${x.desc}</small></div>`).join('')}</div>` : '';
+  const rows = state.members.map(m=>{
+    const bal = r.balance[m.id];
+    let cls='zero', txt='已結清';
+    if(bal > r.eps){ cls='pos'; txt='應收 '+fmt(bal,state.base); }
+    else if(bal < -r.eps){ cls='neg'; txt='應付 '+fmt(-bal,state.base); }
+    return `<tr><td><span class="who">${avatar(m.id)}${esc(m.name)}</span></td>
+      <td>${fmt(r.paid[m.id],state.base)}</td><td>${fmt(r.owed[m.id],state.base)}</td><td class="${cls}">${txt}</td></tr>`;
+  }).join('');
+  const tf = r.transfers.length
+    ? r.transfers.map(t=>`<div class="tf">${avatar(t.from)}<span>${esc(memberName(t.from))}</span><span class="arrow">➜</span>${avatar(t.to)}<span>${esc(memberName(t.to))}</span><span class="money">${fmt(t.amt,state.base)}</span></div>`).join('')
+      + `<p class="hint" style="margin:4px 0 0">✨ 只要 ${r.transfers.length} 次轉帳就能全部結清</p>`
+    : `<div class="celebrate">🎉 帳目清清楚楚，友情長長久久！<br>大家剛好打平，不用轉帳</div>`;
+  body.innerHTML = `${badgeHtml}
+    <h3>📊 每人收支</h3>
+    <table class="bal"><thead><tr><th>旅伴</th><th>已付</th><th>應負擔</th><th>差額</th></tr></thead><tbody>${rows}</tbody></table>
+    <h3>💸 轉帳建議</h3>${tf}`;
+}
+function renderAll(){
+  const r = compute();
+  renderRateStatus(); renderLevel(); renderMembers(); renderForm();
+  renderRates(); renderExpenses(r); renderSettle(r);
+}
+
+/* ================= 互動事件 ================= */
+$('tripName').addEventListener('input', e=>{ state.tripName = e.target.value; save(); });
+
+$('baseCur').addEventListener('change', e=>{
+  const nb = e.target.value;
+  if(Object.keys(state.overrides).length && !confirm('更換結算幣別後，手動調整過的匯率會重設，確定要更換嗎？')){
+    e.target.value = state.base; return;
+  }
+  state.base = nb; state.overrides = {};
+  save(); renderAll(); fetchRates();
+  toast(`結算幣別改為 ${CURRENCIES[nb].flag} ${CURRENCIES[nb].name}`);
+});
+
+function addMember(){
+  const input = $('memberInput');
+  const name = input.value.trim();
+  if(!name){ toast('名字不能空白喔 🙈'); return; }
+  if(state.members.length >= 10){ toast('車子坐滿了！最多 10 位旅伴 🚐'); return; }
+  if(state.members.some(m=>m.name === name)){ toast(`已經有「${name}」了，換個暱稱吧 😅`); return; }
+  const m = {id:uid(), name};
+  state.members.push(m);
+  formParts.add(m.id);
+  input.value = '';
+  save(); renderAll();
+  if(state.members.length === 2) renderGreeting();
+  toast(`歡迎 ${name} 加入旅程！🎒`);
+}
+$('addMemberBtn').addEventListener('click', addMember);
+$('memberInput').addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); addMember(); } });
+
+$('memberList').addEventListener('click', e=>{
+  const id = e.target.dataset.delMember;
+  if(!id) return;
+  const used = state.expenses.some(x=>x.payer === id || x.participants.includes(id));
+  if(used){ toast(`${memberName(id)}還有帳沒算清，不能離團喔！🚫`); return; }
+  const name = memberName(id);
+  state.members = state.members.filter(m=>m.id !== id);
+  formParts.delete(id);
+  save(); renderAll();
+  toast(`${name} 離開旅程了，有緣再一起出發 👋`);
+});
+
+$('fCats').addEventListener('click', e=>{
+  const b = e.target.closest('[data-cat]');
+  if(!b) return;
+  formCat = b.dataset.cat;
+  renderForm();
+});
+$('fParts').addEventListener('click', e=>{
+  const b = e.target.closest('[data-part]');
+  if(!b) return;
+  const id = b.dataset.part;
+  formParts.has(id) ? formParts.delete(id) : formParts.add(id);
+  renderForm();
+});
+$('toggleAll').addEventListener('click', e=>{
+  e.preventDefault();
+  if(formParts.size === state.members.length) formParts.clear();
+  else formParts = new Set(state.members.map(m=>m.id));
+  renderForm();
+});
+$('fAmount').addEventListener('input', renderPreview);
+$('fCurrency').addEventListener('change', renderPreview);
+
+function resetForm(){
+  editingId = null;
+  $('fTitle').value = ''; $('fAmount').value = '';
+  formParts = new Set(state.members.map(m=>m.id));
+  $('formTitle').textContent = '🧾 新增一筆費用';
+  $('submitBtn').textContent = '✈️ 記下這筆';
+  $('cancelEdit').hidden = true;
+}
+
+$('expenseForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  if(state.members.length < 2){ toast('至少要 2 位旅伴才能分帳喔 👫'); return; }
+  const amount = parseFloat($('fAmount').value);
+  if(!(amount > 0)){ toast('請輸入大於 0 的金額 💰'); $('fAmount').focus(); return; }
+  if(!formParts.size){ toast('至少要勾選 1 位分攤人 ☝️'); return; }
+  const payer = $('fPayer').value;
+  if(!member(payer)){ toast('請選擇付款人'); return; }
+  const currency = $('fCurrency').value;
+  const title = $('fTitle').value.trim() || CATS[formCat].label;
+  const data = {title, cat:formCat, amount, currency, payer, participants:[...formParts]};
+  state.lastCurrency = currency;
+
+  if(editingId){
+    const ex = state.expenses.find(x=>x.id === editingId);
+    Object.assign(ex, data);
+    resetForm(); save(); renderAll();
+    toast('修改完成！達人的帳本永遠正確 ✍️');
+    return;
+  }
+  const before = levelOf(state.expenses.length);
+  state.expenses.push({id:uid(), createdAt:Date.now(), ...data});
+  const after = levelOf(state.expenses.length);
+  const cat = formCat;
+  resetForm(); save(); renderAll();
+  toast(pick(CAT_TOASTS[cat]));
+  if(after > before){
+    toastAfter(`🎉 恭喜升級！你現在是「${LEVELS[after].icon} ${LEVELS[after].name}」`, true);
+  }
+});
+
+$('cancelEdit').addEventListener('click', ()=>{ resetForm(); renderAll(); });
+
+$('expenseList').addEventListener('click', e=>{
+  const ed = e.target.closest('[data-edit]');
+  const del = e.target.closest('[data-del-exp]');
+  if(ed){
+    const x = state.expenses.find(v=>v.id === ed.dataset.edit);
+    editingId = x.id;
+    $('fTitle').value = x.title; $('fAmount').value = x.amount;
+    $('fCurrency').value = x.currency; formCat = x.cat;
+    formParts = new Set(x.participants);
+    renderAll();
+    $('fPayer').value = x.payer;
+    $('formTitle').textContent = '✏️ 編輯費用';
+    $('submitBtn').textContent = '💾 儲存修改';
+    $('cancelEdit').hidden = false;
+    $('formCard').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  if(del){
+    const x = state.expenses.find(v=>v.id === del.dataset.delExp);
+    if(!confirm(`確定要刪除「${x.title}」這筆費用嗎？`)) return;
+    state.expenses = state.expenses.filter(v=>v.id !== x.id);
+    if(editingId === x.id) resetForm();
+    save(); renderAll();
+    toast('這筆帳已經從記憶中抹去 🫥');
+  }
+});
+
+$('rateList').addEventListener('change', e=>{
+  const c = e.target.dataset.rate;
+  if(!c) return;
+  const v = parseFloat(e.target.value);
+  if(!(v > 0)){ toast('匯率必須大於 0'); renderRates(); return; }
+  state.overrides[c] = v;
+  save(); renderAll();
+  toast(`${CURRENCIES[c].flag} ${c} 匯率已改為 ${fmtRate(v)}，全部重新計算完成 🔁`);
+});
+$('rateList').addEventListener('click', e=>{
+  const c = e.target.dataset.resetRate;
+  if(!c) return;
+  delete state.overrides[c];
+  save(); renderAll();
+  toast(`${c} 已恢復自動匯率`);
+});
+$('refreshRates').addEventListener('click', ()=>{ fetchRates().then(()=>toast(rateMode==='live'?'匯率已更新到最新 🟢':'目前無法連線，先用現有匯率 🟡')); });
+
+function buildReport(){
+  const r = compute();
+  const L = [];
+  L.push('🧮 旅遊會計達人結算報告');
+  if(state.tripName) L.push(`✈️ ${state.tripName}`);
+  L.push(`共 ${state.expenses.length} 筆費用，總計 ${fmt(r.total,state.base)}`);
+  L.push('');
+  L.push('【每人收支】');
+  state.members.forEach(m=>{
+    const bal = r.balance[m.id];
+    const s = bal > r.eps ? `應收 ${fmt(bal,state.base)}` : bal < -r.eps ? `應付 ${fmt(-bal,state.base)}` : '已結清';
+    L.push(`${m.name}：已付 ${fmt(r.paid[m.id],state.base)}／應負擔 ${fmt(r.owed[m.id],state.base)} → ${s}`);
+  });
+  L.push('');
+  L.push('【轉帳建議】');
+  if(r.transfers.length) r.transfers.forEach(t=>L.push(`👉 ${memberName(t.from)} → ${memberName(t.to)}：${fmt(t.amt,state.base)}`));
+  else L.push('🎉 大家剛好打平，不用轉帳！');
+  const used = [...new Set(state.expenses.map(e=>e.currency))].filter(c=>c !== state.base);
+  if(used.length){
+    L.push('');
+    L.push('【使用匯率】' + used.map(c=>`1 ${state.base} = ${fmtRate(rate(c))} ${c}`).join('、'));
+  }
+  L.push('');
+  L.push('—— 由 TripSplit 旅伴分帳器產生');
+  return L.join('\n');
+}
+$('copyBtn').addEventListener('click', async ()=>{
+  const text = buildReport();
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    ta.remove();
+  }
+  toast('已複製！快貼到 LINE 群組催帳吧 📲');
+});
+
+$('clearAll').addEventListener('click', ()=>{
+  if(!confirm('確定要清除所有旅伴和費用嗎？這個動作無法復原喔！')) return;
+  const keep = {liveRates:state.liveRates, liveBase:state.liveBase, ratesUpdated:state.ratesUpdated};
+  state = Object.assign(defaultState(), keep);
+  formParts = new Set(); resetForm();
+  save(); renderHeader(); renderGreeting(); renderAll();
+  toast('帳本清空了，準備迎接下一趟旅程 🌏');
+});
+
+/* ================= 啟動 ================= */
+renderHeader();
+renderGreeting();
+renderAll();
+fetchRates();
+</script>
+</body>
+</html>
