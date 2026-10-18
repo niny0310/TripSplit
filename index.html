@@ -156,6 +156,19 @@ details[open].card summary{margin-bottom:12px}
 
 footer{max-width:1080px;margin:0 auto;padding:8px 16px 40px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;color:var(--muted);font-size:.82rem}
 
+/* share button & modal */
+.pill-btn{border:none;cursor:pointer;color:#fff;font-weight:700;background:rgba(255,255,255,.28);transition:background .2s}
+.pill-btn:hover{background:rgba(255,255,255,.4)}
+.modal{position:fixed;inset:0;background:rgba(29,53,87,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+.modal[hidden]{display:none}
+.modal-box{background:#fff;border-radius:22px;padding:24px 20px 18px;width:100%;max-width:420px;position:relative;max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal-x{position:absolute;top:12px;right:12px}
+.qr{display:flex;flex-direction:column;align-items:center;gap:6px;margin:6px 0 14px}
+.qr .qr-frame{padding:12px;border:2px dashed var(--line);border-radius:16px;background:#fff}
+.qr img,.qr canvas{display:block}
+.share-stats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.share-stats span{background:var(--sky-l);color:var(--sky-d);border-radius:99px;padding:3px 10px;font-size:.8rem;font-weight:700}
+
 /* toast */
 .toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,30px);background:var(--ink);color:#fff;padding:12px 20px;border-radius:14px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:all .3s;z-index:99;max-width:calc(100% - 32px);text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
@@ -181,6 +194,7 @@ footer{max-width:1080px;margin:0 auto;padding:8px 16px 40px;display:flex;justify
     <div class="hero-meta">
       <label>結算幣別 <select id="baseCur"></select></label>
       <span id="rateStatus" class="pill">匯率載入中…</span>
+      <button id="shareBtn" class="pill pill-btn" type="button">📤 分享旅程連結</button>
     </div>
     <div class="level">
       <div class="level-top"><span id="levelName"></span><span id="levelNext"></span></div>
@@ -243,16 +257,35 @@ footer{max-width:1080px;margin:0 auto;padding:8px 16px 40px;display:flex;justify
       <h2>🧮 結算中心</h2>
       <div id="settleBody"></div>
       <button id="copyBtn" class="btn btn-sky btn-block" type="button">📋 一鍵複製結算結果（貼到 LINE）</button>
+      <button id="shareBtn2" class="btn btn-ghost btn-block" style="margin-top:10px" type="button">📤 分享旅程連結（手機、旅伴都能看）</button>
     </section>
   </div>
 </main>
 
 <footer>
-  <span>💾 資料會自動儲存在這台裝置的瀏覽器中・匯率來源：open.er-api.com</span>
+  <span>💾 資料會自動儲存在這台裝置的瀏覽器中，想在其他裝置查看請用「📤 分享旅程連結」・匯率來源：open.er-api.com</span>
   <button id="clearAll" class="btn btn-danger" type="button">🗑️ 清除全部資料</button>
 </footer>
 
 <div id="toast" class="toast"></div>
+
+<div id="shareModal" class="modal" hidden>
+  <div class="modal-box" role="dialog" aria-labelledby="shareTitle">
+    <button class="icon-btn modal-x" id="shareClose" type="button" title="關閉">✕</button>
+    <h2 id="shareTitle">📤 分享旅程連結</h2>
+    <p class="hint" style="margin-top:0">用手機掃描 QR Code，或把連結傳到 LINE 群組，打開就能看到同一份帳本！</p>
+    <div id="shareStats" class="share-stats"></div>
+    <div id="qrBox" class="qr"></div>
+    <div class="row">
+      <input id="shareUrl" readonly>
+      <button class="btn btn-sky" id="shareCopy" type="button">複製連結</button>
+    </div>
+    <button class="btn btn-coral btn-block" id="shareNative" type="button" hidden>📲 用 LINE 或其他 App 分享</button>
+    <p class="hint" style="margin-bottom:0">⚠️ 連結是「現在這一刻」的帳本快照，之後新增的費用需要重新分享一次喔。</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
 
 <script>
 /* ================= 基本設定 ================= */
@@ -815,11 +848,138 @@ $('clearAll').addEventListener('click', ()=>{
   toast('帳本清空了，準備迎接下一趟旅程 🌏');
 });
 
+
+/* ================= 分享旅程連結 ================= */
+// 資料 → JSON → 壓縮（瀏覽器內建 CompressionStream）→ Base64URL → 放進網址 #trip=...
+// 開頭字母標示格式：z = 壓縮過、j = 未壓縮（舊瀏覽器備援）
+function b64urlFromBytes(bytes){
+  let bin = '';
+  for(let i=0;i<bytes.length;i+=8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+8192));
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function bytesFromB64url(str){
+  str = str.replace(/-/g,'+').replace(/_/g,'/');
+  while(str.length % 4) str += '=';
+  const bin = atob(str);
+  const out = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function pipeBytes(bytes, stream){
+  const res = new Response(new Blob([bytes]).stream().pipeThrough(stream));
+  return new Uint8Array(await res.arrayBuffer());
+}
+async function encodeTrip(){
+  const payload = {
+    v:1, n:state.tripName, b:state.base, o:state.overrides,
+    m:state.members.map(m=>[m.id, m.name]),
+    e:state.expenses.map(e=>[e.id, e.title, e.cat, e.amount, e.currency, e.payer, e.participants, e.createdAt])
+  };
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  if(typeof CompressionStream !== 'undefined'){
+    try{ return 'z' + b64urlFromBytes(await pipeBytes(bytes, new CompressionStream('deflate-raw'))); }catch(e){}
+  }
+  return 'j' + b64urlFromBytes(bytes);
+}
+async function decodeTrip(code){
+  const kind = code[0];
+  let bytes = bytesFromB64url(code.slice(1));
+  if(kind === 'z') bytes = await pipeBytes(bytes, new DecompressionStream('deflate-raw'));
+  else if(kind !== 'j') throw new Error('unknown format');
+  const p = JSON.parse(new TextDecoder().decode(bytes));
+  // 驗證與清理資料，避免壞掉的連結弄壞帳本
+  const base = CURRENCIES[p.b] ? p.b : 'TWD';
+  const members = (Array.isArray(p.m) ? p.m : []).slice(0,10)
+    .filter(x=>Array.isArray(x) && typeof x[0]==='string' && typeof x[1]==='string')
+    .map(x=>({id:x[0], name:x[1].slice(0,12)}));
+  const ids = new Set(members.map(m=>m.id));
+  const expenses = (Array.isArray(p.e) ? p.e : []).map(x=>({
+    id:String(x[0]), title:String(x[1]||'').slice(0,30), cat:CATS[x[2]] ? x[2] : 'other',
+    amount:Number(x[3]), currency:x[4], payer:x[5],
+    participants:(Array.isArray(x[6]) ? x[6] : []).filter(id=>ids.has(id)), createdAt:Number(x[7])||Date.now()
+  })).filter(e=>e.amount > 0 && CURRENCIES[e.currency] && ids.has(e.payer) && e.participants.length);
+  const overrides = {};
+  if(p.o && typeof p.o === 'object') Object.keys(p.o).forEach(c=>{ if(CURRENCIES[c] && Number(p.o[c]) > 0) overrides[c] = Number(p.o[c]); });
+  if(!members.length) throw new Error('empty');
+  return {tripName:String(p.n||'').slice(0,30), base, members, expenses, overrides};
+}
+
+async function checkSharedLink(){
+  const m = location.hash.match(/^#trip=(.+)$/);
+  if(!m) return;
+  try{ history.replaceState(null, '', location.pathname + location.search); }catch(e){}
+  try{
+    const t = await decodeTrip(m[1]);
+    const name = t.tripName || '未命名旅程';
+    const hasLocal = state.members.length || state.expenses.length;
+    if(hasLocal && !confirm(`這個連結裡有「${name}」（${t.members.length} 位旅伴、${t.expenses.length} 筆費用）。\n\n要載入嗎？這台裝置上目前的帳本會被取代喔！`)){
+      toast('已保留原本的帳本 👌'); return;
+    }
+    const keep = {liveRates:state.liveRates, liveBase:state.liveBase, ratesUpdated:state.ratesUpdated, lastCurrency:state.lastCurrency};
+    state = Object.assign(defaultState(), keep, t);
+    resetForm(); save(); renderHeader(); renderGreeting(); renderAll();
+    toast(`📥 已載入「${name}」：${t.members.length} 位旅伴、${t.expenses.length} 筆費用！`, true);
+  }catch(e){
+    toast('這個分享連結好像壞掉了 😢 請對方重新分享一次');
+  }
+}
+
+let currentShareUrl = '';
+async function openShare(){
+  if(!state.members.length){ toast('帳本是空的，先加入旅伴再分享吧 🧳'); return; }
+  const code = await encodeTrip();
+  currentShareUrl = location.origin + location.pathname + '#trip=' + code;
+  if(location.protocol === 'file:') currentShareUrl = location.href.split('#')[0] + '#trip=' + code;
+  $('shareUrl').value = currentShareUrl;
+  $('shareStats').innerHTML = `<span>✈️ ${esc(state.tripName || '未命名旅程')}</span><span>${state.members.length} 位旅伴</span><span>${state.expenses.length} 筆費用</span>`;
+  const box = $('qrBox');
+  box.innerHTML = '';
+  if(typeof QRCode === 'undefined'){
+    box.innerHTML = '<span class="hint">（QR Code 載入失敗，請改用下方的複製連結）</span>';
+  }else{
+    const frame = document.createElement('div');
+    frame.className = 'qr-frame';
+    box.appendChild(frame);
+    try{
+      new QRCode(frame, {text:currentShareUrl, width:200, height:200, correctLevel:QRCode.CorrectLevel.L});
+      box.insertAdjacentHTML('beforeend', '<span class="hint">📷 用手機相機掃描，帳本就搬過去了</span>');
+    }catch(e){
+      box.innerHTML = '<span class="hint">📦 帳本資料太多，QR Code 裝不下，請改用下方的複製連結</span>';
+    }
+  }
+  $('shareNative').hidden = !navigator.share;
+  $('shareModal').hidden = false;
+}
+function closeShare(){ $('shareModal').hidden = true; }
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); }
+  catch(e){
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); }catch(_){}
+    ta.remove();
+  }
+}
+$('shareBtn').addEventListener('click', openShare);
+$('shareBtn2').addEventListener('click', openShare);
+$('shareClose').addEventListener('click', closeShare);
+$('shareModal').addEventListener('click', e=>{ if(e.target.id === 'shareModal') closeShare(); });
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') closeShare(); });
+$('shareUrl').addEventListener('focus', e=>e.target.select());
+$('shareCopy').addEventListener('click', async ()=>{
+  await copyText(currentShareUrl);
+  toast('旅程連結已複製！傳到手機或 LINE 群組就能打開 📲');
+});
+$('shareNative').addEventListener('click', async ()=>{
+  try{ await navigator.share({title:'TripSplit 旅伴分帳器', text:`「${state.tripName || '我們的旅程'}」的帳本在這裡 👇`, url:currentShareUrl}); }catch(e){}
+});
+
 /* ================= 啟動 ================= */
 renderHeader();
 renderGreeting();
 renderAll();
-fetchRates();
+checkSharedLink().finally(fetchRates);
+window.addEventListener('hashchange', ()=>{ checkSharedLink(); });
 </script>
 </body>
 </html>
